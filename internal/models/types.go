@@ -14,6 +14,8 @@ type Match struct {
 	AwayTeamID int
 	HomeGoals  int
 	AwayGoals  int
+	HomeTeamName string
+	AwayTeamName string
 }
 
 type LeagueTableRow struct {
