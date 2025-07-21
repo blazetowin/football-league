@@ -37,7 +37,7 @@ func main() {
 		league.PrintMatchesOfWeek(week)
 
 		fmt.Printf("\n📊 %d. Hafta Sonu Puan Durumu:\n", week)
-		table, err := league.GenerateLeagueTable()
+		table, err := league.GenerateLeagueTable(week)
 		if err != nil {
 			log.Fatalf("❌ Puan durumu getirilemedi: %v", err)
 		}

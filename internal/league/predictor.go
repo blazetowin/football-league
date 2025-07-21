@@ -55,4 +55,3 @@ func PrintChampionshipPredictions(week int, table []models.LeagueTableRow) {
 		fmt.Printf("%-15s %%%.0f\n", p.Team, math.Round(p.Oran))
 	}
 }
-

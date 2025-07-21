@@ -88,6 +88,18 @@ func min(a, b int) int {
 }
 
 func CreateFixture() error {
+	// Eğer daha önce maçlar oluşturulmuşsa fikstürü tekrar oluşturma
+	var existing int
+	err := storage.DB.QueryRow("SELECT COUNT(*) FROM matches").Scan(&existing)
+	if err != nil {
+		return fmt.Errorf("Fixture kontrolü başarısız: %v", err)
+	}
+	if existing > 0 {
+		fmt.Println("ℹ️ Fixture zaten oluşturulmuş. Yeniden oluşturulmuyor.")
+		return nil
+	}
+
+	// Takımları çek
 	rows, err := storage.DB.Query("SELECT id FROM teams ORDER BY id")
 	if err != nil {
 		return err
@@ -107,8 +119,7 @@ func CreateFixture() error {
 		return errors.New("Fixture sadece 4 takım içindir")
 	}
 
-	// Sabit fikstür: her hafta 2 maç ve her takım haftada sadece 1 maç
-	// Takım indeksleri üzerinden sabit round-robin eşleşmeleri (ev/deplasman dönüşümlü)
+	// Sabit fikstür: her takım diğerleriyle hem iç hem dış sahada oynar
 	type Match struct {
 		Week int
 		Home int
@@ -123,20 +134,13 @@ func CreateFixture() error {
 		{6, teamIDs[3], teamIDs[0]}, {6, teamIDs[2], teamIDs[1]},
 	}
 
-	// Tüm eski maçları sil (isteğe bağlı)
-	_, err = storage.DB.Exec("DELETE FROM matches")
-	if err != nil {
-		return err
-	}
-
-	// Fikstürü DB'ye yaz
 	for _, match := range fixture {
 		_, err := storage.DB.Exec(`
 			INSERT INTO matches (week, home_team_id, away_team_id, home_goals, away_goals)
 			VALUES (?, ?, ?, NULL, NULL)
 		`, match.Week, match.Home, match.Away)
 		if err != nil {
-			return err
+			return fmt.Errorf("Match kaydı başarısız: %v", err)
 		}
 	}
 
