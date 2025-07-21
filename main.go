@@ -1,50 +1,57 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 
 	"go-football-league/internal/league"
 	"go-football-league/internal/storage"
 )
 
 func main() {
-	// Veritabanı bağlantısını başlat
 	storage.Connect()
+	fmt.Println("✅ Database connection and table setup successful.")
 
+	// 🔁 Eğer fikstür daha önce oluşturulmamışsa oluştur
+	err := league.CreateFixture()
+	if err != nil {
+		log.Fatalf("❌ Fixture oluşturulamadı: %v", err)
+	}
 
-	// 4 hafta boyunca lig oynatılacak
-	for week := 1; week <= 4; week++ {
-		fmt.Printf("\n🗓️ ====================== %d. HAFTA ======================\n\n", week)
+	for week := 1; week <= 6; week++ {
+		fmt.Printf("🗓️ ====================== %d. HAFTA ======================\n\n", week)
 
-		// Hafta oynatılıyor (eğer daha önce oynanmadıysa)
-		err := league.PlayWeek(week)
+		err := league.GenerateWeeklyMatches(week)
 		if err != nil {
 			log.Fatalf("❌ Hafta %d oynatılamadı: %v", week, err)
 		}
 
-		// Maç sonuçlarını yazdır
-		fmt.Printf("\n🏟️ %d. Hafta Maç Sonuçları:\n", week)
-		err = league.PrintMatchesOfWeek(week)
+		err = league.SimulateScores(week)
 		if err != nil {
-			log.Fatalf("❌ Maçlar listelenemedi: %v", err)
+			log.Fatalf("❌ Skorlar simüle edilemedi: %v", err)
 		}
 
-		// Güncel puan durumunu yazdır
+		fmt.Printf("\n🏟️ %d. Hafta Maç Sonuçları:\n", week)
+		league.PrintMatchesOfWeek(week)
+
 		fmt.Printf("\n📊 %d. Hafta Sonu Puan Durumu:\n", week)
 		table, err := league.GenerateLeagueTable()
 		if err != nil {
 			log.Fatalf("❌ Puan durumu getirilemedi: %v", err)
 		}
 
-		fmt.Println("------------------------------------------------------------")
-		fmt.Printf("%-15s %2s %2s %2s %2s %4s %4s %4s %4s\n", "Takım", "O", "G", "B", "M", "AG", "YG", "+/-", "P")
-		fmt.Println("------------------------------------------------------------")
-		for _, row := range table {
-			fmt.Printf("%-15s %2d %2d %2d %2d %4d %4d %4d %4d\n",
-				row.TeamName, row.Played, row.Wins, row.Draws, row.Losses,
-				row.GoalsFor, row.GoalsAgainst, row.GoalDiff, row.Points)
+		league.PrintLeagueTableRows(table)
+		fmt.Println()
+		
+		// 🔮 Şampiyonluk tahminini yazdır (4. haftadan sonra)
+		league.PrintChampionshipPredictions(week, table)
+
+		if week < 6 {
+			fmt.Print("\n🔁 Devam etmek için Enter'a bas...")
+			bufio.NewReader(os.Stdin).ReadBytes('\n')
+			fmt.Println()
 		}
-		fmt.Println("------------------------------------------------------------")
 	}
 }
