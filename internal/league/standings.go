@@ -1,17 +1,17 @@
 package league
 
 import (
-	"fmt" // Importing fmt for formatted I/O
-	"sort" 	// Importing sort for sorting slices
-	"go-football-league/internal/models" // Importing models for LeagueTableRow type
-	"go-football-league/internal/storage" 	// Importing storage for database operations
+	"fmt"
+	"sort"
+
+	models "go-football-league/internal/domain"
+	storage "go-football-league/internal/repository"
 )
 
-// GenerateLeagueTable computes the league standings from all matches
-// It aggregates match results to calculate points, wins, losses, and goal differences for each team
-// It returns a slice of LeagueTableRow containing the standings
-// If an error occurs during database operations, it returns the error
+// GenerateLeagueTable computes the league standings.
+// It reads played matches from the database and calculates total points, goals, wins, losses and draws for each team. The final table is sorted by points, gd and goals scored.
 func GenerateLeagueTable(upToWeek int) ([]models.LeagueTableRow, error) {
+	// Query all played matches up to the specified week
 	rows, err := storage.DB.Query(`
 		SELECT 
 			m.home_team_id, t1.name, m.home_goals, m.away_goals,
@@ -20,22 +20,25 @@ func GenerateLeagueTable(upToWeek int) ([]models.LeagueTableRow, error) {
 		JOIN teams t1 ON m.home_team_id = t1.id
 		JOIN teams t2 ON m.away_team_id = t2.id
 		WHERE m.week <= ? AND m.home_goals IS NOT NULL AND m.away_goals IS NOT NULL
-	`, upToWeek) // 👈 Sadece belirli haftaya kadar olan maçlar
+	`, upToWeek)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	// Use a map to collect statistics per team
 	stats := make(map[int]*models.LeagueTableRow)
 
 	for rows.Next() {
 		var homeID, awayID, homeGoals, awayGoals int
 		var homeName, awayName string
 
+		// Read one match result
 		if err := rows.Scan(&homeID, &homeName, &homeGoals, &awayGoals, &awayID, &awayName); err != nil {
 			return nil, err
 		}
 
+		// Initialize team rows if not already added
 		if _, ok := stats[homeID]; !ok {
 			stats[homeID] = &models.LeagueTableRow{TeamID: homeID, TeamName: homeName}
 		}
@@ -46,14 +49,17 @@ func GenerateLeagueTable(upToWeek int) ([]models.LeagueTableRow, error) {
 		home := stats[homeID]
 		away := stats[awayID]
 
+		// Update matches played
 		home.Played++
 		away.Played++
 
+		// Update goals scored and conceded
 		home.GoalsFor += homeGoals
 		home.GoalsAgainst += awayGoals
 		away.GoalsFor += awayGoals
 		away.GoalsAgainst += homeGoals
 
+		// Assign points and match results
 		if homeGoals > awayGoals {
 			home.Wins++
 			home.Points += 3
@@ -70,12 +76,14 @@ func GenerateLeagueTable(upToWeek int) ([]models.LeagueTableRow, error) {
 		}
 	}
 
+	// Finalize table with goal difference and flatten the map
 	var table []models.LeagueTableRow
 	for _, row := range stats {
 		row.GoalDiff = row.GoalsFor - row.GoalsAgainst
 		table = append(table, *row)
 	}
 
+	// Sort the table: Points > Goal Difference > Goals For
 	sort.SliceStable(table, func(i, j int) bool {
 		if table[i].Points != table[j].Points {
 			return table[i].Points > table[j].Points
@@ -86,6 +94,6 @@ func GenerateLeagueTable(upToWeek int) ([]models.LeagueTableRow, error) {
 		return table[i].GoalsFor > table[j].GoalsFor
 	})
 
-	fmt.Println("📊 League table generated.")
+	fmt.Println("League table generated.")
 	return table, nil
 }

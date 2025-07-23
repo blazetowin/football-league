@@ -1,43 +1,42 @@
 package league
 
 import (
-	"fmt" 	// Importing fmt for formatted I/O
+	"fmt"
 
-	"go-football-league/internal/storage" // Importing storage for database operations
+	storage "go-football-league/internal/repository"
 )
 
-// PlayWeek plays one simulation week (match creation + result generation)
-// This function is responsible for simulating a week in the football league.
-// It first generates matches for the specified week and then simulates the scores for those matches.
-// It returns an error if any step fails, allowing the caller to handle it appropriately.
+// PlayWeek runs the simulation process for a specific week.
+// It first checks whether the week has already been simulated to prevent duplicate execution.
+// If not played it creates fixtures and simulates the match results.
+// Returns an error if any step fails.
 func PlayWeek(week int) error {
-	// Check if the week has already been played
-	// Prevent re-playing the same week
 	if played, err := weekAlreadyPlayed(week); err != nil {
-		return fmt.Errorf("❌ Failed to check if week played: %v", err)
+		return fmt.Errorf("Failed to check if week was already played: %v", err)
 	} else if played {
-		fmt.Printf("❌ Week %d already played. Skipping.\n", week)
+		fmt.Printf("Week %d already played. Skipping.\n", week)
 		return nil
 	}
 
-	fmt.Printf("ℹ️ Generating matches for week %d...\n", week)
-	// 4 takımdan 2 maç oluşturuyoruz
-	err := GenerateWeeklyMatches(week)
-	if err != nil {
-		return fmt.Errorf("❌ Failed to generate matches: %v", err)
+	fmt.Printf("Generating fixtures for week %d...\n", week)
+
+	if err := GenerateWeeklyMatches(week); err != nil {
+		return fmt.Errorf("Failed to generate weekly matches: %v", err)
 	}
 
-	fmt.Println("📅 Week", week, "is being simulated...")
-	err = SimulateScores(week)
-	if err != nil {
-		return fmt.Errorf("❌ Failed to simulate scores: %v", err)
+	fmt.Printf("Simulating results for week %d...\n", week)
+
+	if err := SimulateScores(week); err != nil {
+		return fmt.Errorf("Failed to simulate match scores: %v", err)
 	}
 
-	fmt.Println("✅ Week", week, "completed.")
+	fmt.Printf("Week %d simulation completed.\n", week)
 	return nil
 }
 
-// weekAlreadyPlayed checks if the week has already been played by verifying if any matches with scores exist.
+// weekAlreadyPlayed determines whether the given week already has recorded results.
+// It queries the database for matches with non-null score values.
+// Returns true if the week has already been played.
 func weekAlreadyPlayed(week int) (bool, error) {
 	var count int
 	err := storage.DB.QueryRow(`
@@ -49,6 +48,9 @@ func weekAlreadyPlayed(week int) (bool, error) {
 	}
 	return count > 0, nil
 }
+
+// PrintMatchesOfWeek prints the match results or fixtures for the given week.
+// If match scores are present, it displays them; otherwise, it shows placeholders.
 func PrintMatchesOfWeek(week int) error {
 	rows, err := storage.DB.Query(`
 		SELECT m.id, t1.name, t2.name, m.home_goals, m.away_goals
@@ -62,7 +64,7 @@ func PrintMatchesOfWeek(week int) error {
 	}
 	defer rows.Close()
 
-	fmt.Printf("🏟️ Matches for week %d:\n", week)
+	fmt.Printf("Match results for week %d:\n", week)
 	for rows.Next() {
 		var matchID int
 		var homeTeam, awayTeam string
@@ -70,11 +72,13 @@ func PrintMatchesOfWeek(week int) error {
 		if err := rows.Scan(&matchID, &homeTeam, &awayTeam, &homeGoals, &awayGoals); err != nil {
 			return err
 		}
-		score := "vs"
+
+		score := "vs" // Default text if match has not been played
 		if homeGoals != nil && awayGoals != nil {
 			score = fmt.Sprintf("%d-%d", *homeGoals, *awayGoals)
 		}
-		fmt.Printf("   Match %d: %s %s %s\n", matchID, homeTeam, score, awayTeam)
+
+		fmt.Printf("  Match %d: %s %s %s\n", matchID, homeTeam, score, awayTeam)
 	}
 	return nil
 }

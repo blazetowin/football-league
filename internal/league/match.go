@@ -6,11 +6,12 @@ import (
 	"math/rand"
 	"time"
 
-	"go-football-league/internal/models"
-	"go-football-league/internal/storage"
+	models "go-football-league/internal/domain"
+	storage "go-football-league/internal/repository"
 )
 
-// Haftalık maçları oluşturur
+// GenerateWeeklyMatches checks whether match fixtures already exist for the specified week.
+// It returns an error if the number of matches is unexpected or fixtures haven't been created yet.
 func GenerateWeeklyMatches(week int) error {
 	var count int
 	err := storage.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE week = ?", week).Scan(&count)
@@ -18,19 +19,19 @@ func GenerateWeeklyMatches(week int) error {
 		return err
 	}
 	if count == 2 {
-		fmt.Printf("\u2139\ufe0f Matches already exist for week %d\n", week)
+		fmt.Printf("Matches already exist for week %d\n", week)
 		return nil
 	}
 	if count == 0 {
-		return errors.New("\u274c Fixture not created — please run CreateFixture() first.")
+		return errors.New("Fixture not created — please run CreateFixture() first")
 	}
 	if count != 2 {
-		return fmt.Errorf("\u274c Unexpected match count for week %d: expected 2, got %d", week, count)
+		return fmt.Errorf("Unexpected match count for week %d: expected 2, got %d", week, count)
 	}
 	return nil
 }
 
-// Maçlara skor simülasyonu uygular
+// SimulateScores generates random scores for matches that haven't been played yet, based on the power rating of the home and away teams.
 func SimulateScores(week int) error {
 	rows, err := storage.DB.Query(`
 		SELECT m.id, t1.power, t2.power
@@ -43,12 +44,14 @@ func SimulateScores(week int) error {
 		return err
 	}
 	defer rows.Close()
+
 	type match struct {
 		ID        int
 		PowerHome int
 		PowerAway int
 	}
-	var matches []match
+	// Collect matches that need score simulation
+	var matches []match			
 	for rows.Next() {
 		var m match
 		if err := rows.Scan(&m.ID, &m.PowerHome, &m.PowerAway); err != nil {
@@ -56,35 +59,40 @@ func SimulateScores(week int) error {
 		}
 		matches = append(matches, m)
 	}
-
+	// Randomly generate scores based on team power ratings
+	// The scores are capped to a maximum of 6 goals to prevent unrealistic results
+	// The rand.Seed is set to the current time to ensure different results each time this is important for randomness in simulations	
 	rand.Seed(time.Now().UnixNano())
 	for _, m := range matches {
-		homeGoals := rand.Intn(min((m.PowerHome/10)+2+1, 6))
-		awayGoals := rand.Intn(min((m.PowerAway/10)+2, 6))
-
-		fmt.Printf(" Match %d simulated → Home: %d | Away: %d\n", m.ID, homeGoals, awayGoals)
+		if m.PowerHome < 0 || m.PowerAway < 0 {
+			return fmt.Errorf("Invalid team power for match %d: home %d, away %d", m.ID, m.PowerHome, m.PowerAway)
+		}
+		homeGoals := rand.Intn(min((m.PowerHome/10)+2+1, 6)) 	// +1 point home team advantage
+		awayGoals := rand.Intn(min((m.PowerAway/10)+2, 6)) 		// away team has no advantage
+		fmt.Printf("Match %d simulated → Home: %d | Away: %d\n", m.ID, homeGoals, awayGoals)
 		res, err := storage.DB.Exec(`
 			UPDATE matches SET home_goals = ?, away_goals = ? WHERE id = ?
 		`, homeGoals, awayGoals, m.ID)
 		if err != nil {
-			fmt.Println("\u274c UPDATE error for match", m.ID, ":", err)
+			fmt.Printf("Failed to update match %d: %v\n", m.ID, err)
 			return err
 		}
 		rowsAffected, _ := res.RowsAffected()
-		fmt.Printf(" Match %d update affected rows: %d\n", m.ID, rowsAffected)
+		fmt.Printf("Match %d update affected rows: %d\n", m.ID, rowsAffected)
 	}
 	return nil
 }
 
-// Fixture oluşturur
+// CreateFixture generates a complete fixture list for a 4-team league over 6 weeks.
+// Each team plays against every other team both home and away.
 func CreateFixture() error {
 	var existing int
 	err := storage.DB.QueryRow("SELECT COUNT(*) FROM matches").Scan(&existing)
 	if err != nil {
-		return fmt.Errorf("Fixture kontrolü başarısız: %v", err)
+		return fmt.Errorf("Failed to check existing fixture: %v", err)
 	}
 	if existing > 0 {
-		fmt.Println("\u2139\ufe0f Fixture zaten oluşturulmuş. Yeniden oluşturulmuyor.")
+		fmt.Println("Fixture already exists. Skipping creation.")
 		return nil
 	}
 
@@ -104,9 +112,10 @@ func CreateFixture() error {
 	}
 
 	if len(teamIDs) != 4 {
-		return errors.New("Fixture sadece 4 takım içindir")
+		return errors.New("Fixture generation requires exactly 4 teams")
 	}
 
+	// Static fixture for a 4-team round-robin league (home and away system)
 	type Match struct {
 		Week int
 		Home int
@@ -127,15 +136,16 @@ func CreateFixture() error {
 			VALUES (?, ?, ?, NULL, NULL)
 		`, match.Week, match.Home, match.Away)
 		if err != nil {
-			return fmt.Errorf("Match kaydı başarısız: %v", err)
+			return fmt.Errorf("Failed to insert match: %v", err)
 		}
 	}
 
-	fmt.Println("\u2705 Fixture created successfully.")
+	fmt.Println("Fixture created successfully.")
 	return nil
 }
 
-// Belirli haftaya ait maçları getirir
+// GetMatchesByWeek retrieves all matches played in a given week,
+// Tncluding team names and match details.
 func GetMatchesByWeek(week int) ([]models.Match, error) {
 	rows, err := storage.DB.Query(`
 		SELECT m.id, m.week, m.home_team_id, m.away_team_id, m.home_goals, m.away_goals,
@@ -163,7 +173,7 @@ func GetMatchesByWeek(week int) ([]models.Match, error) {
 	return matches, nil
 }
 
-// Maç sonucunu günceller
+// UpdateMatchResult updates the result of a specific match with new goal values.
 func UpdateMatchResult(matchID int, homeGoals, awayGoals int) error {
 	_, err := storage.DB.Exec(`
 		UPDATE matches
@@ -173,7 +183,10 @@ func UpdateMatchResult(matchID int, homeGoals, awayGoals int) error {
 	return err
 }
 
-// Yardımcı fonksiyon: min
+// min returns the smaller of two integers.
+// Used to cap simulated goal values.
+// It ensures that scores do not exceed a reasonable limit.
+// This is important to prevent unrealistic match results.
 func min(a, b int) int {
 	if a < b {
 		return a

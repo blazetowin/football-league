@@ -1,57 +1,57 @@
 package league
 
-
 import (
 	"fmt"
 	"math"
 	"sort"
-	"go-football-league/internal/models"
+	"go-football-league/internal/domain"
 )
-
-// Şampiyonluk oranlarını hesapla ve yazdır
+// PrintChampionshipPredictions displays the league title chances for each team based on the current standings of the given week.
+// It only runs if the league has progressed to at least week 4.
 func PrintChampionshipPredictions(week int, table []models.LeagueTableRow) {
 	if week < 4 {
-		return // 4. haftadan önce gösterme
+		// Not enough data to calculate predictions
+		return
 	}
 
-	fmt.Printf("\n🏆 %d. Hafta Şampiyonluk Tahminleri:\n", week)
+	fmt.Printf("\nChampionship Predictions - Week %d:\n", week)
 
-	// 1. Toplam puanı topla (normalize için)
+	// Calculate total points in the table
 	totalPoints := 0
 	for _, t := range table {
 		totalPoints += t.Points
 	}
 
-	// 2. Boş puan varsa rastgele dağılmasın
+	// If total points is 0, assign equal chances to all teams
 	if totalPoints == 0 {
 		for _, t := range table {
-			fmt.Printf("%-15s %%25\n", t.TeamName)
+			fmt.Printf("%-15s 25%%\n", t.TeamName)
 		}
 		return
 	}
 
-	// 3. Oran hesapla
+	// Compute each team's chance based on their points
 	type Prediction struct {
-		Team  string
-		Oran  float64
+		Team string
+		Rate float64
 	}
+
 	var preds []Prediction
 	for _, t := range table {
-		p := float64(t.Points) / float64(totalPoints) * 100
+		p := (float64(t.Points) / float64(totalPoints)) * 100
 		preds = append(preds, Prediction{
 			Team: t.TeamName,
-			Oran: p,
+			Rate: p,
 		})
 	}
 
-	// 4. Büyükten küçüğe sırala
+	// Sort predictions in descending order
 	sort.Slice(preds, func(i, j int) bool {
-		return preds[i].Oran > preds[j].Oran
+		return preds[i].Rate > preds[j].Rate
 	})
 
-	// 5. Yazdır
+	// Display rounded predictions 
 	for _, p := range preds {
-		// En fazla 1 ondalık göster
-		fmt.Printf("%-15s %%%.0f\n", p.Team, math.Round(p.Oran))
+		fmt.Printf("%-15s %.0f%%\n", p.Team, math.Round(p.Rate))
 	}
 }

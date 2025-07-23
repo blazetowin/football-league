@@ -2,20 +2,20 @@ package main
 
 import (
 	"log"
-	"net/http"
+	"net/http" 						
 
-	"go-football-league/internal/routes"
-	"go-football-league/internal/storage"
+	"go-football-league/internal/api/routes"													
+	"go-football-league/internal/repository"
 )
 
 func main() {
-	// Veritabanı bağlantısı
-	storage.Connect()
+	// Initialize and establish the database connection
+	repository.Connect()
 
-	// API route'larını başlat
+	// Set up all API routes and return the configured router
 	router := routes.SetupRouter()
 
-	// HTTP sunucusunu başlat
-	log.Println("🚀 Sunucu http://localhost:8080 adresinde çalışıyor...")
+	// Start the HTTP server on port 8080
+	log.Println("Server is running at http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
