@@ -1,11 +1,11 @@
-# ⚽ Go Football League Simulator
+# Go Football League Simulator
 
 A full-featured football league simulation backend built with Go and SQLite.
 This project supports both CLI-based and REST API-based interaction for simulating matches, managing fixtures, viewing league tables, and generating championship predictions.
 
 ---
 
-## 📌 Overview
+## Overview
 
 * Simulates a 4-team league over 6 weeks (home and away)
 * Team powers affect match scores (editable)
@@ -16,7 +16,7 @@ This project supports both CLI-based and REST API-based interaction for simulati
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 go-football-league/
@@ -42,9 +42,9 @@ go-football-league/
 
 ---
 
-## ⚙️ Running the Project
+##  Running the Project
 
-### 🔹 Option 1: CLI Simulation
+###  Option 1: CLI Simulation
 
 Simulates each week step-by-step in terminal.
 
@@ -58,7 +58,7 @@ go run main.go
 
 ---
 
-### 🔹 Option 2: REST API Server
+### Option 2: REST API Server
 
 Launches HTTP server with API endpoints.
 
@@ -70,7 +70,7 @@ Server runs at: `http://localhost:8080`
 
 ---
 
-## 🔁 Database Reset / Customization
+## Database Reset / Customization
 
 * Delete existing database:
 
@@ -83,7 +83,7 @@ Server runs at: `http://localhost:8080`
 
 ---
 
-## ⚽ Fixture Generation Logic
+## Fixture Generation Logic
 
 * Automatically generates 6-week fixtures using `CreateFixture()`
 * Each team plays 3 home + 3 away matches
@@ -91,7 +91,7 @@ Server runs at: `http://localhost:8080`
 
 ---
 
-## 🔥 API Endpoints
+## API Endpoints
 
 | Method | Endpoint                               | Description                                       |
 | ------ | -------------------------------------- | ------------------------------------------------- |
@@ -104,7 +104,7 @@ Server runs at: `http://localhost:8080`
 
 ---
 
-## 🧠 Example CLI Output
+## Example CLI Output
 
 ```bash
 ===== WEEK 3 =====
@@ -122,7 +122,7 @@ Chelsea        3   2  0  1   5   3  +2   6
 
 ---
 
-## 📦 Tech Stack
+## Tech Stack
 
 * **Language:** Go (Golang)
 * **Database:** SQLite (via `github.com/mattn/go-sqlite3`)
@@ -131,7 +131,7 @@ Chelsea        3   2  0  1   5   3  +2   6
 
 ---
 
-## 📜 License
+## License
 
 MIT © 2025 [Arda Olgun](https://github.com/blazetowin)
 
