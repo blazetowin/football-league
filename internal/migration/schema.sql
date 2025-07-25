@@ -47,4 +47,3 @@ INSERT INTO teams (name, power) VALUES
 ('Arsenal', 85),
 ('Manchester City', 88),
 ('Liverpool', 83)
-ON CONFLICT(name) DO NOTHING; -- Prevent duplicate inserts if rerun

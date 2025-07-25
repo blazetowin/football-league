@@ -2,17 +2,17 @@ package main
 
 import (
 	"log"
-	"net/http" 						
+	"net/http"
 
-	"go-football-league/internal/api/routes"													
-	"go-football-league/internal/repository"
+	"go-football-league/internal/api/routes"
+	storage "go-football-league/internal/repository" // Database connection and schema loader
 )
 
 func main() {
-	// Initialize and establish the database connection
-	repository.Connect()
+	// Initialize the SQLite database and execute the schema setup
+	storage.Connect()
 
-	// Set up all API routes and return the configured router
+	// Set up and return the router with all registered API endpoints
 	router := routes.SetupRouter()
 
 	// Start the HTTP server on port 8080
